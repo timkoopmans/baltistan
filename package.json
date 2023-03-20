@@ -1,0 +1,19 @@
+{
+  "name": "baltistan",
+  "version": "1.0.0",
+  "dependencies": {
+    "k6": "^0.0.0"
+  },
+  "scripts": {
+    "local-basic": "k6 run --vus 10 --duration 30s scripts/basic.js",
+    "local-basic-influxdb": "k6 run --vus 10 --duration 30s --out influxdb=http://localhost:8086/k6 scripts/basic.js",
+    "local-microservice-influxdb": "k6 run --out influxdb=http://localhost:8086/k6 scripts/microservice.js",
+    "docker-backend": "docker-compose up -d influxdb grafana chamber",
+    "docker-basic": "docker-compose up loadtest",
+    "local-basic-cloud": "k6 run --vus 10 --duration 30s --out cloud -e TEST_NAME=\"Basic test with local execution\" .\\scripts\\basic.js",
+    "cloud-basic": "k6 cloud --vus 10 --duration 30s -e TEST_NAME=\"Basic test with cloud execution\" .\\scripts\\basic.js"
+  },
+  "devDependencies": {
+    "@types/k6": "^0.43.2"
+  }
+}

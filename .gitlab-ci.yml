@@ -1,0 +1,54 @@
+variables:
+  ECR_BASE_URL: "777017402606.dkr.ecr.ap-southeast-2.amazonaws.com/loadtests"
+  AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY: $AWS_ACCESS_KEY_ID
+  AWS_DEFAULT_REGION: "ap-southeast-2"
+
+stages:
+  - build
+  - loadtest
+
+build:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  variables:
+    DOCKER_PROJECT_DIR: $CI_PROJECT_DIR
+    DOCKER_DOCKERFILE: $CI_PROJECT_DIR/Dockerfile
+    DOCKER_DESTINATION: ${ECR_BASE_URL}:${CI_PIPELINE_ID}
+    DOCKER_DESTINATION_LATEST: ${ECR_BASE_URL}:latest
+  script:
+    - mkdir -p /kaniko/.docker
+    - echo "{\"credsStore\":\"ecr-login\" }" > /kaniko/.docker/config.json
+    - /kaniko/executor
+      --context $DOCKER_PROJECT_DIR
+      --cache=false
+      --dockerfile $DOCKER_DOCKERFILE
+      --destination $DOCKER_DESTINATION_LATEST
+
+loadtest:
+  stage: loadtest
+  image:
+    name: amazon/aws-cli:latest
+    entrypoint: [""]
+  script:
+    - aws ecs run-task 
+      --cluster loadtest 
+      --task-definition loadtest:2 
+      --count 3
+      --launch-type FARGATE
+      --network-configuration "awsvpcConfiguration={
+          subnets=[subnet-0730b6759de37899e,subnet-0bfd5384043dfd0c7,subnet-0ecc2de3a34816e28],
+          securityGroups=[sg-011772aff74a763c6],
+          assignPublicIp=ENABLED
+      }"
+      --overrides '{
+        "containerOverrides":[{"name":"loadtest",
+        "command":[
+        "run", 
+          "--vus", "10", 
+          "--duration", "60s", 
+          "--out", "influxdb=http://172.31.15.227:8086/k6", 
+          "/tests/scripts/basic.js"
+        ]}]}'
